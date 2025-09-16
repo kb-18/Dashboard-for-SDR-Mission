@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RateGain SDR Performance | Interactive Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg1:#667eea;
+      --bg2:#764ba2;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --ink:#1f2937;
+      --ring: 0 10px 30px rgba(0,0,0,.08);
+      --radius: 16px;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; padding:24px;
+      font-family:'Inter',system-ui,Segoe UI,Roboto,Arial;
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    }
+    .shell { max-width:1200px; margin:0 auto; background:rgba(255,255,255,.96); border-radius:24px; box-shadow:0 24px 60px rgba(0,0,0,.12); overflow:hidden; }
+    header { background:linear-gradient(135deg,#1e3c72,#2a5298); color:#fff; padding:28px 32px; }
+    header h1 { margin:0; font-weight:800; letter-spacing:.2px;}
+    header p { margin:6px 0 0; opacity:.9; }
+    .content { padding:28px; }
+    .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; }
+    .kpi { background:var(--card); border-radius:var(--radius); padding:18px; box-shadow:var(--ring); position:relative; overflow:hidden; }
+    .kpi h4 { margin:0; color:var(--muted); font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
+    .kpi .big { font-size:32px; font-weight:800; color:var(--ink); margin-top:6px; }
+    .kpi .bar { height:8px; background:#eef2ff; border-radius:6px; margin-top:10px; overflow:hidden; }
+    .kpi .fill { height:100%; background:linear-gradient(90deg,#4ecdc4,#44a08d); width:0; }
+    .grid { display:grid; grid-template-columns: 1.1fr .9fr; gap:18px; margin-top:22px; }
+    .panel { background:var(--card); border-radius:var(--radius); padding:18px; box-shadow:var(--ring); }
+    .panel h3 { margin:0 0 8px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px 8px; border-bottom:1px solid #f1f5f9; text-align:center; font-size:13px; }
+    th { background:#f8fafc; color:#475569; text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
+    td.name { text-align:left; font-weight:600; color:#111827; }
+    .rank { font-weight:800; }
+    .badge { padding:4px 10px; border-radius:999px; font-weight:700; font-size:11px; color:#fff; }
+    .b-excellent { background:linear-gradient(135deg,#4ecdc4,#44a08d); }
+    .b-good { background:linear-gradient(135deg,#45b7d1,#96c93d); }
+    .b-avg { background:linear-gradient(135deg,#f093fb,#f5576c); }
+    .b-need { background:linear-gradient(135deg,#ff6b6b,#ee5a24); }
+    .charts { display:grid; grid-template-columns:1fr; gap:18px; margin-top:18px; }
+    .foot { text-align:center; color:#e5e7eb; font-size:12px; padding:18px; }
+    @media (max-width: 980px) {
+      .kpis { grid-template-columns:1fr 1fr; }
+      .grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <h1>🚀 RateGain | SDR Performance Dashboard</h1>
+      <p>Interactive, presentation-ready KPIs and leaderboards • Updated: Tuesday, September 16, 2025</p>
+    </header>
+    <div class="content">
+      <!-- KPI CARDS -->
+      <section class="kpis">
+        <div class="kpi"><h4>Total Calls</h4><div class="big">154</div><div class="bar"><div class="fill" style="width:77%"></div></div></div>
+        <div class="kpi"><h4>Qualified Calls</h4><div class="big">49</div><div class="bar"><div class="fill" style="width:49%"></div></div></div>
+        <div class="kpi"><h4>Meetings Scheduled</h4><div class="big">26</div><div class="bar"><div class="fill" style="width:43%"></div></div></div>
+        <div class="kpi"><h4>Opportunities</h4><div class="big">2</div><div class="bar"><div class="fill" style="width:20%"></div></div></div>
+        <div class="kpi"><h4>Total Opp Value</h4><div class="big">$6,600</div><div class="bar"><div class="fill" style="width:66%"></div></div></div>
+      </section>
+
+      <!-- MAIN GRID -->
+      <section class="grid">
+        <div class="panel">
+          <h3>🏆 Leaderboard</h3>
+          <table id="board">
+            <thead>
+              <tr>
+                <th>Rank</th><th>Name</th><th>Calls</th><th>Qualified</th><th>Meetings</th><th>Balance Meetings</th><th>Opps</th><th>Balance Opp</th><th>Opp Value ($)</th><th>Performance</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>📊 Performance Comparison</h3>
+          <canvas id="cmp" height="330"></canvas>
+        </div>
+      </section>
+
+      <section class="charts">
+        <div class="panel">
+          <h3>🧭 Conversion Funnel</h3>
+          <canvas id="funnel" height="320"></canvas>
+        </div>
+      </section>
+    </div>
+    <div class="foot">© RateGain • SDR Dashboard • Built with Chart.js</div>
+  </div>
+
+<script>
+const data = [{"name": "Saher", "calls": 6, "qualified": 6, "meetings": 6, "bal_meetings": 14, "opps": 2, "bal_opps": 8, "value": 6600}, {"name": "Anjelia", "calls": 52, "qualified": 6, "meetings": 5, "bal_meetings": 15, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Jayant", "calls": 20, "qualified": 6, "meetings": 3, "bal_meetings": 17, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Omkar", "calls": 8, "qualified": 5, "meetings": 3, "bal_meetings": 17, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Arushi", "calls": 10, "qualified": 7, "meetings": 2, "bal_meetings": 18, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Ria", "calls": 9, "qualified": 5, "meetings": 2, "bal_meetings": 18, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Kartik J", "calls": 2, "qualified": 2, "meetings": 2, "bal_meetings": 18, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Mansi", "calls": 7, "qualified": 1, "meetings": 2, "bal_meetings": 18, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Arnika", "calls": 21, "qualified": 7, "meetings": 1, "bal_meetings": 19, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Kartik B", "calls": 5, "qualified": 3, "meetings": 0, "bal_meetings": 20, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Diksha", "calls": 14, "qualified": 1, "meetings": 0, "bal_meetings": 20, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Oak", "calls": 0, "qualified": 0, "meetings": 0, "bal_meetings": 20, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Niyati", "calls": 0, "qualified": 0, "meetings": 0, "bal_meetings": 20, "opps": 0, "bal_opps": 10, "value": 0}, {"name": "Lakshay", "calls": 0, "qualified": 0, "meetings": 0, "bal_meetings": 20, "opps": 0, "bal_opps": 10, "value": 0}];
+
+// Compute totals (if needed on client)
+const totals = data.reduce((acc, r) => ({ 
+  acc.calls+=r.calls; acc.qualified+=r.qualified; acc.meetings+=r.meetings; acc.opps+=r.opps; acc.value+=r.value; return acc; 
+}), {calls:0,qualified:0,meetings:0,opps:0,value:0});
+
+// Leaderboard rendering
+const tbody = document.querySelector('#board tbody');
+data.forEach((r, i) => {
+  const rank = i+1;
+  const score = r.opps*5 + r.meetings*3 + r.qualified*2 + r.calls;
+  let badge = '<span class="badge b-need">Needs&nbsp;Focus</span>';
+  if (score >= 40) badge = '<span class="badge b-excellent">Excellent</span>';
+  else if (score >= 25) badge = '<span class="badge b-good">Good</span>';
+  else if (score >= 15) badge = '<span class="badge b-avg">Average</span>';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="rank">${rank}</td>
+                  <td class="name">${r.name}</td>
+                  <td>${r.calls}</td>
+                  <td>${r.qualified}</td>
+                  <td>${r.meetings}</td>
+                  <td>${r.opps}</td>
+                  <td>$${r.value.toLocaleString()}</td>
+                  <td>${badge}</td>`;
+  tbody.appendChild(tr);
+});
+
+// Comparison chart
+const ctx = document.getElementById('cmp').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: data.map(r => r.name),
+    datasets: [
+      {
+        label: 'Calls',
+        data: data.map(r => r.calls),
+        backgroundColor: 'rgba(78, 205, 196, 0.8)',
+        borderColor: 'rgba(78, 205, 196, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false
+      },
+      {
+        label: 'Qualified',
+        data: data.map(r => r.qualified),
+        backgroundColor: 'rgba(69, 183, 209, 0.8)',
+        borderColor: 'rgba(69, 183, 209, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false
+      },
+      {
+        label: 'Meetings',
+        data: data.map(r => r.meetings),
+        backgroundColor: 'rgba(240, 147, 251, 0.8)',
+        borderColor: 'rgba(240, 147, 251, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false
+      },
+      {
+        label: 'Opps',
+        data: data.map(r => r.opps),
+        backgroundColor: 'rgba(255, 107, 107, 0.8)',
+        borderColor: 'rgba(255, 107, 107, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position:'bottom' },
+      tooltip: {
+        backgroundColor:'rgba(0,0,0,.85)',
+        titleColor:'#fff', bodyColor:'#fff', borderColor:'rgba(255,255,255,.15)', borderWidth:1,
+        cornerRadius:8
+      }
+    },
+    scales: {
+      y: { beginAtZero:true },
+      x: { ticks: { maxRotation: 45, autoSkip: true } }
+    }
+  }
+});
+
+// Funnel chart (horizontal bars)
+const fctx = document.getElementById('funnel').getContext('2d');
+new Chart(fctx, {
+  type: 'bar',
+  data: {
+    labels: ['Calls', 'Qualified', 'Meetings', 'Opportunities'],
+    datasets: [{
+      label: 'Totals',
+      data: [totals.calls, totals.qualified, totals.meetings, totals.opps],
+      backgroundColor: ['rgba(78,205,196,.85)', 'rgba(69,183,209,.85)', 'rgba(240,147,251,.85)', 'rgba(255,107,107,.85)'],
+      borderColor: ['rgba(78,205,196,1)', 'rgba(69,183,209,1)', 'rgba(240,147,251,1)', 'rgba(255,107,107,1)'],
+      borderWidth: 2,
+      borderRadius: 10,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: { legend: { display:false } },
+    scales: { x: { beginAtZero:true } }
+  }
+});
+</script>
+</body>
+</html>
